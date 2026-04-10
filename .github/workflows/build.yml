@@ -19,6 +19,12 @@ jobs:
         name: Checkout
         uses: actions/checkout@v4
 
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install curl jq psmisc procps xz-utils tree
+
       - name: Get version
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
@@ -90,8 +96,8 @@ jobs:
           echo "${ver}"
           mkdir -p /tmp/amd64
           mkdir -p /tmp/arm64
-          docker run -i --rm --entrypoint="" -v .:/host -v /tmp/amd64:/tmp --platform linux/amd64 ${{ secrets.DOCKER_USERNAME }}/runlike:${ver} bash -c "/host/go.sh ${ver}; cp --verbose --force /runlike/dist/runlike_final /tmp/runlike-amd64"
-          docker run -i --rm --entrypoint="" -v .:/host -v /tmp/arm64:/tmp --platform linux/arm64 ${{ secrets.DOCKER_USERNAME }}/runlike:${ver} bash -c "/host/go.sh ${ver}; cp --verbose --force /runlike/dist/runlike_final /tmp/runlike-arm64"
+          docker run -i --rm --entrypoint="" -v .:/host -v /tmp/amd64:/tmp --platform linux/amd64 ${{ secrets.DOCKER_USERNAME }}/runlike:${ver} bash -c "cp --verbose --force /usr/local/bin/runlike /tmp/runlike-amd64"
+          docker run -i --rm --entrypoint="" -v .:/host -v /tmp/arm64:/tmp --platform linux/arm64 ${{ secrets.DOCKER_USERNAME }}/runlike:${ver} bash -c "cp --verbose --force /usr/local/bin/runlike /tmp/runlike-arm64"
           pushd /tmp/amd64;
             cp ./runlike-amd64 runlike;
             tar -cv --xz  -f runlike-amd64.tar.xz ./runlike;
@@ -103,6 +109,16 @@ jobs:
             tar -cv --xz  -f runlike-arm64.tar.xz ./runlike;
             tar -cv -z    -f runlike-arm64.tar.gz ./runlike;
           popd
+
+          tree /tmp/amd64
+          tree /tmp/arm64
+
+      - name: test case
+        shell: bash
+        run: |
+          docker run -d nginx -p 5555:80 nginx:1.29.8-alpine
+          docker run -i --rm -v /var/run/docker.sock:/var/run/docker.sock ${{ secrets.DOCKER_USERNAME }}/runlike:${ver} -p nginx
+          /tmp/amd64/runlike-amd64 -p nginx
 
       - name: Release
         uses: softprops/action-gh-release@v2
