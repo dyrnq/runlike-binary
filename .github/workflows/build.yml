@@ -116,7 +116,7 @@ jobs:
       - name: test case
         shell: bash
         run: |
-          docker run -d nginx -p 5555:80 nginx:1.29.8-alpine
+          docker run -d --name nginx -p 5555:80 nginx:1.29.8-alpine
           docker run -i --rm -v /var/run/docker.sock:/var/run/docker.sock ${{ secrets.DOCKER_USERNAME }}/runlike:${ver} -p nginx
           /tmp/amd64/runlike-amd64 -p nginx
 
