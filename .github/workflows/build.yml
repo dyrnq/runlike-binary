@@ -19,7 +19,7 @@ jobs:
         name: Checkout
         uses: actions/checkout@v4
 
-    steps:
+
       - name: Install dependencies
         run: |
           sudo apt-get -y update
