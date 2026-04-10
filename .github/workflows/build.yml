@@ -1,0 +1,97 @@
+name: build and release
+
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore:
+      - main
+    # tags-ignore:
+    #   - main
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
+      - name: Test version
+        run: |
+          echo ${{ steps.get_version.outputs.VERSION }}
+          echo ${{ github.ref }}
+
+      -
+        name: Set up QEMU
+        id: qemu
+        uses: docker/setup-qemu-action@v2
+      -
+        name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+      -
+        name: Inspect builder
+        run: |
+          echo "Name:      ${{ steps.buildx.outputs.name }}"
+          echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
+          echo "Status:    ${{ steps.buildx.outputs.status }}"
+          echo "Flags:     ${{ steps.buildx.outputs.flags }}"
+          echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
+
+
+      - name: Build dockerfile (with no push)
+        run: |
+            ver="${{ steps.get_version.outputs.VERSION }}"
+            echo "${ver}"
+            ./buildx.sh \
+            --version ${ver} \
+            --push false \
+            --repo ${{ secrets.DOCKER_USERNAME }} \
+            --image-name runlike \
+            --docker-file debian/Dockerfile \
+            --platforms "linux/amd64,linux/arm64/v8"
+
+
+
+      - name: Fetch binary
+        shell: bash
+        run: |
+          ver="${{ steps.get_version.outputs.VERSION }}"
+          echo "${ver}"
+          mkdir -p /tmp/amd64
+          mkdir -p /tmp/arm64
+          docker run -i --rm --entrypoint="" -v .:/host -v /tmp/amd64:/tmp --platform linux/amd64 ${{ secrets.DOCKER_USERNAME }}/runlike:${ver} bash -c "/host/go.sh ${ver}; cp --verbose --force /runlike/dist/runlike_final /tmp/amd64/runlike-amd64"
+          docker run -i --rm --entrypoint="" -v .:/host -v /tmp/arm64:/tmp --platform linux/arm64 ${{ secrets.DOCKER_USERNAME }}/runlike:${ver} bash -c "/host/go.sh ${ver}; cp --verbose --force /runlike/dist/runlike_final /tmp/arm64/runlike-arm64"
+          pushd /tmp/amd64;
+            cp ./runlike-amd64 runlike;
+            tar -cv --xz  -f runlike-amd64.tar.xz ./runlike;
+            tar -cv -z    -f runlike-amd64.tar.gz ./runlike;
+          popd
+
+          pushd /tmp/arm64;
+            cp ./runlike-arm64 runlike;
+            tar -cv --xz  -f runlike-arm64.tar.xz ./runlike;
+            tar -cv -z    -f runlike-arm64.tar.gz ./runlike;
+          popd
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          # https://github.com/lavie/runlike
+          body: "Release runlike ${{ steps.get_version.outputs.VERSION }}.  \n source: https://github.com/lavie/runlike/releases/tag/${{ steps.get_version.outputs.VERSION }}"
+          files: |
+            /tmp/amd64/runlike-amd64
+            /tmp/amd64/runlike-arm64
+            /tmp/amd64/runlike-amd64.tar.xz
+            /tmp/amd64/runlike-arm64.tar.xz
+            /tmp/amd64/runlike-amd64.tar.gz
+            /tmp/amd64/runlike-arm64.tar.gz
+
