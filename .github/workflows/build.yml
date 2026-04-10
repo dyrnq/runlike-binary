@@ -130,9 +130,9 @@ jobs:
           body: "Release runlike ${{ steps.get_version.outputs.VERSION }}.  \n source: https://github.com/lavie/runlike/releases/tag/${{ steps.get_version.outputs.VERSION }}"
           files: |
             /tmp/amd64/runlike-amd64
-            /tmp/amd64/runlike-arm64
             /tmp/amd64/runlike-amd64.tar.xz
-            /tmp/amd64/runlike-arm64.tar.xz
             /tmp/amd64/runlike-amd64.tar.gz
-            /tmp/amd64/runlike-arm64.tar.gz
+            /tmp/arm64/runlike-arm64
+            /tmp/arm64/runlike-arm64.tar.xz
+            /tmp/arm64/runlike-arm64.tar.gz
 
